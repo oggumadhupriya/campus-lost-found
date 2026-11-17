@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Campus Lost and Found Portal</title>
+
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/app.js" defer></script>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <h1>Campus Lost &amp; Found</h1>
+
+        <nav>
+            <a href="#home">Home</a>
+            <a href="#items">Recent Items</a>
+            <a href="#report">Report an Item</a>
+
+            <a href="login.html" id="loginLink">Login</a>
+            <a href="register.html" id="registerLink">Register</a>
+
+            <span id="welcomeMessage"></span>
+            <button id="logoutButton" style="display: none;">
+                Logout
+            </button>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- Home Section -->
+        <section id="home" class="hero">
+            <h2>Lost Something on Campus?</h2>
+            <p>Find your belongings or help someone find theirs.</p>
+
+            <input
+                type="search"
+                id="searchInput"
+                placeholder="Search items..."
+                aria-label="Search items"
+            >
+
+            <select id="typeFilter" aria-label="Filter items">
+                <option value="all">All Items</option>
+                <option value="Lost">I Lost an Item</option>
+                <option value="Found">I Found an Item</option>
+            </select>
+        </section>
+
+        <!-- Recent Items -->
+        <section id="items" class="items-section">
+            <h2>Recently Reported Items</h2>
+
+            <div id="itemsContainer" class="items-grid"></div>
+
+            <p id="emptyMessage" hidden>
+                No matching items found.
+            </p>
+        </section>
+
+        <!-- Report Form -->
+        <section id="report" class="report-section">
+            <h2>Report a Lost or Found Item</h2>
+            <p>Provide the details of the item below.</p>
+
+            <form id="reportForm">
+
+                <label for="itemType">Report Type</label>
+                <select id="itemType" required>
+                    <option value="">Select type</option>
+                    <option value="lost">I Lost an Item</option>
+                    <option value="found">I Found an Item</option>
+                </select>
+
+                <label for="itemName">Item Name</label>
+                <input
+                    type="text"
+                    id="itemName"
+                    placeholder="Example: Blue Water Bottle"
+                    maxlength="100"
+                    required
+                >
+
+                <label for="category">Category</label>
+                <select id="category" required>
+                    <option value="">Select category</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="ID Card">ID Card</option>
+                    <option value="Bag">Bag</option>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Books">Books</option>
+                    <option value="Clothing">Clothing</option>
+                    <option value="Other">Other</option>
+                </select>
+
+                <label for="description">Description</label>
+                <textarea
+                    id="description"
+                    placeholder="Describe the item..."
+                    maxlength="1000"
+                    required
+                ></textarea>
+
+                <label for="location">Campus Location</label>
+                <input
+                    type="text"
+                    id="location"
+                    placeholder="Example: Library"
+                    maxlength="150"
+                    required
+                >
+
+                <label for="itemDate">Date Lost or Found</label>
+                <input
+                    type="date"
+                    id="itemDate"
+                    required
+                >
+
+                <label for="itemImage">Item Image (Optional)</label>
+                <input
+                    type="file"
+                    id="itemImage"
+                    name="itemImage"
+                    accept="image/png,image/jpeg,image/webp"
+                >
+
+                <button type="submit" class="report-button">
+                    Submit Report
+                </button>
+
+                <p id="formMessage" role="status" aria-live="polite"></p>
+
+            </form>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 Campus Lost &amp; Found Portal</p>
+    </footer>
+
+</body>
+</html>
