@@ -1,15 +1,6 @@
-const multer = require("multer");
 const fs = require("fs");
 
-const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-
 require("dotenv").config();
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 const express = require("express");
 const path = require("path");
@@ -40,41 +31,6 @@ app.get("/api/test-simple", (req, res) => {
     });
 });
 
-// =====================================
-// Cloudinary Image Upload Configuration
-// =====================================
-
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: "campus-lost-found",
-        allowed_formats: ["jpg", "jpeg", "png", "webp"]
-    }
-});
-
-const upload = multer({
-
-    storage: storage,
-
-    limits: {
-        fileSize: 5 * 1024 * 1024
-    },
-    
-    fileFilter: function (req, file, cb) {
-        const allowedTypes = [
-            "image/jpeg",
-            "image/png",
-            "image/webp"
-        ];
-
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error("Only JPG, PNG, and WEBP images are allowed."));
-        }
-    }
-});
-
 const PORT = 3000;
 
 app.use(express.json());
@@ -82,7 +38,6 @@ app.use(express.static(path.join(__dirname, "public")));
 console.log("PUBLIC FOLDER:", path.join(__dirname, "public"));
 console.log("ADMIN JS EXISTS:", fs.existsSync(path.join(__dirname, "public", "admin.js")));
 console.log("CSS EXISTS:", fs.existsSync(path.join(__dirname, "public", "style.css")));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const client = new MongoClient(process.env.MONGODB_URI);
 
@@ -472,16 +427,14 @@ async function startServer() {
         });
 
         // =====================================
-        // REPORT A LOST OR FOUND ITEM WITH IMAGE
+        // REPORT A LOST OR FOUND ITEM
         // =====================================
 
         app.post(
             "/api/items",
             requireLogin,
-            upload.single("itemImage"),
             async (req, res) => {
                 try {
-                    console.log("UPLOADED FILE:", req.file);
                     const {
                         name,
                         category,
@@ -519,8 +472,6 @@ async function startServer() {
                         type,
                         description: description.trim(),
                         date,
-
-                        image: req.file ? req.file.path : null,
 
                         reportedBy: req.session.user.id,
                         reportedByName: req.session.user.name,

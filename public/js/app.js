@@ -144,22 +144,6 @@ function displayItems() {
         const card = document.createElement("article");
         card.className = "item-card";
 
-        // Display uploaded image
-        if (item.image) {
-            
-            const image = document.createElement("img");
-            
-            image.src = item.image.startsWith("http")
-            ? item.image
-            : "/uploads/" + encodeURIComponent(item.image);
-            
-            image.alt = item.name;
-            image.className = "item-image";
-            image.loading = "lazy";
-            
-            card.appendChild(image);
-        }
-
         const title = document.createElement("h3");
         title.textContent = item.name;
 
@@ -562,8 +546,6 @@ reportForm.addEventListener("submit", async function (event) {
     const itemDate =
         document.getElementById("itemDate").value;
 
-    const imageFile =
-        document.getElementById("itemImage").files[0];
 
     if (
         !itemName ||
@@ -591,24 +573,14 @@ reportForm.addEventListener("submit", async function (event) {
         return;
     }
 
-    if (imageFile && imageFile.size > 5 * 1024 * 1024) {
-        formMessage.textContent =
-            "The image must be 5 MB or smaller.";
-        return;
-    }
-
-    const formData = new FormData();
-
-    formData.append("name", itemName);
-    formData.append("category", category);
-    formData.append("location", location);
-    formData.append("type", itemType);
-    formData.append("description", description);
-    formData.append("date", itemDate);
-
-    if (imageFile) {
-        formData.append("itemImage", imageFile);
-    }
+    const formData = {
+        name: itemName,
+        category: category,
+        location: location,
+        type: itemType,
+        description: description,
+        date: itemDate
+    };
 
     try {
 
@@ -616,7 +588,10 @@ reportForm.addEventListener("submit", async function (event) {
 
         const response = await fetch("/api/items", {
             method: "POST",
-            body: formData
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(formData)
         });
 
         const data = await response.json();
