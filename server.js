@@ -1,7 +1,15 @@
 const multer = require("multer");
 const fs = require("fs");
 
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
 require("dotenv").config();
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const express = require("express");
 const path = require("path");
@@ -33,35 +41,25 @@ app.get("/api/test-simple", (req, res) => {
 });
 
 // =====================================
-// Image Upload Configuration
+// Cloudinary Image Upload Configuration
 // =====================================
 
-const uploadFolder = path.join(__dirname, "uploads");
-
-fs.mkdirSync(uploadFolder, { recursive: true });
-
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadFolder);
-    },
-
-    filename: function (req, file, cb) {
-        const uniqueName =
-            Date.now() + "-" +
-            Math.round(Math.random() * 1E9) +
-            path.extname(file.originalname).toLowerCase();
-
-        cb(null, uniqueName);
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: "campus-lost-found",
+        allowed_formats: ["jpg", "jpeg", "png", "webp"]
     }
 });
 
 const upload = multer({
+
     storage: storage,
 
     limits: {
         fileSize: 5 * 1024 * 1024
     },
-
+    
     fileFilter: function (req, file, cb) {
         const allowedTypes = [
             "image/jpeg",
@@ -483,6 +481,7 @@ async function startServer() {
             upload.single("itemImage"),
             async (req, res) => {
                 try {
+                    console.log("UPLOADED FILE:", req.file);
                     const {
                         name,
                         category,
@@ -521,7 +520,7 @@ async function startServer() {
                         description: description.trim(),
                         date,
 
-                        image: req.file ? req.file.filename : null,
+                        image: req.file ? req.file.path : null,
 
                         reportedBy: req.session.user.id,
                         reportedByName: req.session.user.name,

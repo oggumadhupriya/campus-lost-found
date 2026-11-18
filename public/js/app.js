@@ -146,14 +146,17 @@ function displayItems() {
 
         // Display uploaded image
         if (item.image) {
-
+            
             const image = document.createElement("img");
-
-            image.src = "/uploads/" + encodeURIComponent(item.image);
+            
+            image.src = item.image.startsWith("http")
+            ? item.image
+            : "/uploads/" + encodeURIComponent(item.image);
+            
             image.alt = item.name;
             image.className = "item-image";
             image.loading = "lazy";
-
+            
             card.appendChild(image);
         }
 
