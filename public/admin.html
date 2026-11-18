@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Campus Lost and Found</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <header>
+        <h1>Campus Lost and Found</h1>
+        <nav>
+            <a href="index.html">Home</a>
+            <button id="logoutBtn">Logout</button>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Admin Dashboard</h2>
+        <p>Welcome to the administration panel.</p>
+
+        <!-- Dashboard Statistics -->
+        <section class="admin-stats">
+
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <p id="totalUsers">Loading...</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Total Items</h3>
+                <p id="totalItems">Loading...</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Total Claims</h3>
+                <p id="totalClaims">Loading...</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Recovered Items</h3>
+                <p id="recoveredItems">Loading...</p>
+            </div>
+
+        </section>
+
+        <p id="message"></p>
+
+        <!-- Claims Management -->
+        <section class="admin-claims">
+            <h2>Claims Management</h2>
+
+            <div id="claimsContainer">
+                <p>Loading claims...</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="js/admin.js"></script>
+
+</body>
+</html>

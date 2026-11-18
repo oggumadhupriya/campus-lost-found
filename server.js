@@ -11,6 +11,27 @@ const MongoStore = require("connect-mongo").default;
 const bcrypt = require("bcryptjs");
 
 const app = express();
+
+console.log("LOGGER CHECK - THIS SERVER FILE IS RUNNING");
+
+app.use((req, res, next) => {
+    console.log("INCOMING REQUEST:", req.method, req.url);
+    next();
+});
+
+console.log("SERVER FILE:", __filename);
+
+app.get("/test", (req, res) => {
+    res.send("Express test route is working!");
+});
+
+app.get("/api/test-simple", (req, res) => {
+    res.json({
+        success: true,
+        message: "Simple API route works!"
+    });
+});
+
 // =====================================
 // Image Upload Configuration
 // =====================================
@@ -55,10 +76,14 @@ const upload = multer({
         }
     }
 });
+
 const PORT = 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+console.log("PUBLIC FOLDER:", path.join(__dirname, "public"));
+console.log("ADMIN JS EXISTS:", fs.existsSync(path.join(__dirname, "public", "admin.js")));
+console.log("CSS EXISTS:", fs.existsSync(path.join(__dirname, "public", "style.css")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const client = new MongoClient(process.env.MONGODB_URI);
@@ -111,6 +136,84 @@ async function startServer() {
 
             next();
         }
+
+        // CHECK ADMIN ACCESS
+        async function requireAdmin(req, res, next) {
+            try {
+                if (!req.session.user) {
+                    return res.status(401).json({
+                        success: false,
+                        message: "Please log in first."
+                    });
+                }
+
+                const user = await usersCollection.findOne({
+                    _id: new ObjectId(req.session.user.id)
+                });
+
+                if (!user || user.role !== "admin") {
+                    return res.status(403).json({
+                        success: false,
+                        message: "Admin access denied."
+                    });
+                }
+
+                next();
+
+            } catch (error) {
+                console.error("Admin authentication error:", error);
+
+                res.status(500).json({
+                    success: false,
+                    message: "Could not verify admin access."
+                });
+            }
+        }
+
+        // =====================================
+        // ADMIN DASHBOARD STATISTICS
+        // =====================================
+
+        app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+            try {
+                const totalUsers = await usersCollection.countDocuments();
+
+                const totalItems = await itemsCollection.countDocuments();
+
+                const totalClaims = await claimsCollection.countDocuments();
+
+                const recoveredItems = await itemsCollection.countDocuments({
+                    recoveryStatus: "Recovered"
+                });
+
+                res.json({
+                    success: true,
+                    stats: {
+                        totalUsers,
+                        totalItems,
+                        totalClaims,
+                        recoveredItems
+                    }
+                });
+
+            } catch (error) {
+                console.error("Admin statistics error:", error);
+
+                res.status(500).json({
+                    success: false,
+                    message: "Could not retrieve admin statistics."
+                });
+            }
+        });
+        console.log("ADMIN TEST ROUTE IS REGISTERED");
+
+        // ADMIN TEST ROUTE
+        app.get("/api/admin/test", (req, res) => {
+            res.json({
+                success: true,
+                message: "Admin test route is working!"
+            });
+        });
 
         // DATABASE HEALTH CHECK
         app.get("/api/health", async (req, res) => {
@@ -169,6 +272,7 @@ async function startServer() {
                     name: name.trim(),
                     email: normalizedEmail,
                     passwordHash: hashedPassword,
+                    role: "student",
                     createdAt: new Date()
                 };
 
@@ -177,7 +281,8 @@ async function startServer() {
                 req.session.user = {
                     id: result.insertedId.toString(),
                     name: newUser.name,
-                    email: newUser.email
+                    email: newUser.email,
+                    role: newUser.role
                 };
 
                 req.session.save((error) => {
@@ -205,9 +310,13 @@ async function startServer() {
                     message: "Registration failed."
                 });
             }
+        
         });
-
+    
+        // =====================================
         // STUDENT LOGIN
+        // =====================================
+
         app.post("/api/login", async (req, res) => {
             try {
                 const { email, password } = req.body;
@@ -266,7 +375,8 @@ async function startServer() {
                     req.session.user = {
                         id: user._id.toString(),
                         name: user.name,
-                        email: user.email
+                        email: user.email,
+                        role: user.role || "student"
                     };
 
                     req.session.save((saveError) => {
@@ -297,7 +407,10 @@ async function startServer() {
             }
         });
 
+        // =====================================
         // CHECK CURRENT LOGIN
+        // =====================================
+
         app.get("/api/me", (req, res) => {
             if (!req.session.user) {
                 return res.status(401).json({
@@ -312,7 +425,10 @@ async function startServer() {
             });
         });
 
+        // =====================================
         // STUDENT LOGOUT
+        // =====================================
+
         app.post("/api/logout", (req, res) => {
             req.session.destroy((error) => {
                 if (error) {
@@ -331,7 +447,10 @@ async function startServer() {
             });
         });
 
+        // =====================================
         // GET ALL REPORTED ITEMS
+        // =====================================
+
         app.get("/api/items", async (req, res) => {
             try {
                 const items = await itemsCollection
@@ -354,7 +473,10 @@ async function startServer() {
             }
         });
 
+        // =====================================
         // REPORT A LOST OR FOUND ITEM WITH IMAGE
+        // =====================================
+
         app.post(
             "/api/items",
             requireLogin,
@@ -369,64 +491,71 @@ async function startServer() {
                         description,
                         date
                     } = req.body;
-                    
-                    if (!name || !category || !location || !type ||
-                        !description || !date) {
-                            
-                            return res.status(400).json({
-                                success: false,
-                                message: "Please fill in all required fields."
-                            });
-                        }
-                        
-                        if (!["Lost", "Found"].includes(type)) {
-                            return res.status(400).json({
-                                success: false,
-                                message: "Item type must be Lost or Found."
-                            });
-                        }
-                        
-                        const item = {
-                            name: name.trim(),
-                            category,
-                            location: location.trim(),
-                            type,
-                            description: description.trim(),
-                            date,
 
-                            // Image filename
-                            image: req.file ? req.file.filename : null,
-
-                            reportedBy: req.session.user.id,
-                            reportedByName: req.session.user.name,
-                            recoveryStatus: "Not recovered",
-                            createdAt: new Date()
-                        };
-                        
-                        const result = await itemsCollection.insertOne(item);
-
-                        res.status(201).json({
-                            success: true,
-                            message: "Item reported successfully!",
-                            item: {
-                                ...item,
-                                _id: result.insertedId
-                            }
-                        });
-                    
-                    } catch (error) {
-                        console.error("Report item error:", error);
-                        
-                        res.status(500).json({
+                    if (
+                        !name ||
+                        !category ||
+                        !location ||
+                        !type ||
+                        !description ||
+                        !date
+                    ) {
+                        return res.status(400).json({
                             success: false,
-                            message: "Could not report item."
+                            message: "Please fill in all required fields."
                         });
                     }
+
+                    if (!["Lost", "Found"].includes(type)) {
+                        return res.status(400).json({
+                            success: false,
+                            message: "Item type must be Lost or Found."
+                        });
+                    }
+
+                    const item = {
+                        name: name.trim(),
+                        category,
+                        location: location.trim(),
+                        type,
+                        description: description.trim(),
+                        date,
+
+                        image: req.file ? req.file.filename : null,
+
+                        reportedBy: req.session.user.id,
+                        reportedByName: req.session.user.name,
+                        recoveryStatus: "Not recovered",
+                        createdAt: new Date()
+                    };
+
+                    const result = await itemsCollection.insertOne(item);
+
+                    res.status(201).json({
+                        success: true,
+                        message: "Item reported successfully!",
+                        item: {
+                            ...item,
+                            _id: result.insertedId
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Report item error:", error);
+
+                    res.status(500).json({
+                        success: false,
+                        message: "Could not report item."
+                    });
                 }
-            );
+            }
+        );
 
 
+        // =====================================
         // SUBMIT A CLAIM FOR A FOUND ITEM
+        // =====================================
+
         app.post("/api/items/:id/claims", requireLogin, async (req, res) => {
             try {
                 const itemId = req.params.id;
@@ -511,12 +640,17 @@ async function startServer() {
             }
         });
 
+        // =====================================
         // VIEW MY SUBMITTED CLAIMS
+        // =====================================
+
         app.get("/api/my-claims", requireLogin, async (req, res) => {
             try {
                 const claims = await claimsCollection.find({
                     claimantId: req.session.user.id
-                }).sort({ createdAt: -1 }).toArray();
+                })
+                .sort({ createdAt: -1 })
+                .toArray();
 
                 const claimsWithItems = await Promise.all(
                     claims.map(async (claim) => {
@@ -551,8 +685,22 @@ async function startServer() {
             }
         });
 
+        // =====================================
         // VIEW CLAIMS FOR MY REPORTED ITEM
+        // =====================================
+
+        console.log("ITEM CLAIMS ROUTE REGISTERED");
+        app.get("/api/test-claims-route", (req, res) => {
+            console.log("TEST CLAIMS ROUTE REACHED");
+            
+            res.json({
+                success: true,
+                message: "Claims route test is working!"
+            });
+        });
+        
         app.get("/api/items/:id/claims", requireLogin, async (req, res) => {
+            console.log("CLAIMS ROUTE USER:", req.session.user);
             try {
                 const itemId = req.params.id;
 
@@ -574,7 +722,9 @@ async function startServer() {
                     });
                 }
 
-                if (item.reportedBy !== req.session.user.id) {
+                const isAdmin = req.session.user.role === "admin";
+                
+                if (!isAdmin && item.reportedBy !== req.session.user.id) {
                     return res.status(403).json({
                         success: false,
                         message: "You can only view claims for items you reported."
@@ -583,7 +733,9 @@ async function startServer() {
 
                 const claims = await claimsCollection.find({
                     itemId: new ObjectId(itemId)
-                }).sort({ createdAt: -1 }).toArray();
+                })
+                .sort({ createdAt: -1 })
+                .toArray();
 
                 res.json({
                     success: true,
@@ -610,47 +762,53 @@ async function startServer() {
             try {
                 const claimId = req.params.claimId;
                 const { status } = req.body;
-
+                
                 if (!ObjectId.isValid(claimId)) {
                     return res.status(400).json({
                         success: false,
                         message: "Invalid claim ID."
                     });
                 }
-
+                
                 if (!["approved", "rejected"].includes(status)) {
                     return res.status(400).json({
                         success: false,
                         message: "Status must be approved or rejected."
                     });
                 }
-
+                
                 const claim = await claimsCollection.findOne({
                     _id: new ObjectId(claimId)
                 });
-
+                
                 if (!claim) {
                     return res.status(404).json({
                         success: false,
                         message: "Claim not found."
                     });
                 }
-
+                
                 const item = await itemsCollection.findOne({
+                    
                     _id: claim.itemId
+                
                 });
-
+                
                 if (!item) {
+                    
                     return res.status(404).json({
+                        
                         success: false,
-                        message: "Related item not found."
+                        message: "Item not found."
                     });
                 }
-
-                if (item.reportedBy !== req.session.user.id) {
+                
+                const isAdmin = req.session.user.role === "admin";
+                
+                if (!isAdmin && item.reportedBy !== req.session.user.id) {
                     return res.status(403).json({
                         success: false,
-                        message: "Only the person who reported this item can review its claims."
+                        message: "Only the admin or person who reported this item can review its claims."
                     });
                 }
 
@@ -660,18 +818,19 @@ async function startServer() {
                         message: "This claim has already been reviewed."
                     });
                 }
-
+                
                 const updateResult = await claimsCollection.updateOne(
                     {
                         _id: new ObjectId(claimId),
                         status: "pending"
                     },
+                    
                     {
                         $set: {
-                            status: status,
+                            status,
                             reviewedAt: new Date(),
                             reviewedBy: req.session.user.id
-                        }
+                        } 
                     }
                 );
 
@@ -684,7 +843,7 @@ async function startServer() {
 
                 if (status === "approved") {
                     await itemsCollection.updateOne(
-                        { _id: item._id },
+                        { _id: claim.itemId },
                         {
                             $set: {
                                 recoveryStatus: "Recovered",
@@ -693,12 +852,10 @@ async function startServer() {
                             }
                         }
                     );
-
-                    // Reject other pending claims for this item
+                    
                     await claimsCollection.updateMany(
                         {
-                            itemId: item._id,
-                            _id: { $ne: new ObjectId(claimId) },
+                            itemId: claim.itemId,
                             status: "pending"
                         },
                         {
@@ -714,25 +871,28 @@ async function startServer() {
                 res.json({
                     success: true,
                     message: status === "approved"
-                        ? "Claim approved. The item is marked as recovered."
-                        : "Claim rejected successfully."
+                    ? "Claim approved successfully."
+                    : "Claim rejected successfully."
                 });
-
+            
             } catch (error) {
+                
                 console.error("Review claim error:", error);
-
+                
                 res.status(500).json({
+                    
                     success: false,
-                    message: "Could not review claim."
+                    message: "Server error while reviewing claim."
                 });
             }
         });
 
+        
         // START SERVER
         app.listen(PORT, () => {
             console.log(`Server running at http://localhost:${PORT}`);
         });
-
+    
     } catch (error) {
         console.error("Server error:", error.message);
         process.exit(1);
